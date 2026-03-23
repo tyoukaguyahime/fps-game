@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>FPS</title>
+<style>
+body { margin: 0; overflow: hidden; }
+#start {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: black;
+  color: white;
+  padding: 20px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="start">クリックしてスタート</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
+import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/PointerLockControls.js";
+
+// シーン
+const scene = new THREE.Scene();
+
+// カメラ
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 1, 1000);
+
+// レンダラー
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// ライト
+const light = new THREE.HemisphereLight(0xffffff, 0x444444);
+scene.add(light);
+
+// 地面
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(200,200),
+  new THREE.MeshStandardMaterial({color: 0x808080})
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+// FPS操作
+const controls = new PointerLockControls(camera, document.body);
+scene.add(controls.getObject());
+
+document.getElementById("start").onclick = () => {
+  controls.lock();
+};
+
+// 移動
+let f=false,b=false,l=false,r=false;
+
+document.addEventListener("keydown", e=>{
+  if(e.key==="ArrowUp") f=true;
+  if(e.key==="ArrowDown") b=true;
+  if(e.key==="ArrowLeft") l=true;
+  if(e.key==="ArrowRight") r=true;
+});
+
+document.addEventListener("keyup", e=>{
+  if(e.key==="ArrowUp") f=false;
+  if(e.key==="ArrowDown") b=false;
+  if(e.key==="ArrowLeft") l=false;
+  if(e.key==="ArrowRight") r=false;
+});
+
+// 敵
+const enemy = new THREE.Mesh(
+  new THREE.BoxGeometry(2,2,2),
+  new THREE.MeshStandardMaterial({color:"red"})
+);
+enemy.position.set(0,1,-20);
+scene.add(enemy);
+
+// 射撃
+const raycaster = new THREE.Raycaster();
+
+document.addEventListener("click", ()=>{
+  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+  const hit = raycaster.intersectObjects([enemy]);
+
+  if(hit.length > 0){
+    console.log("ヒット！");
+  }
+});
+
+// ループ
+function animate(){
+  requestAnimationFrame(animate);
+
+  if(f) controls.moveForward(0.2);
+  if(b) controls.moveForward(-0.2);
+  if(l) controls.moveRight(-0.2);
+  if(r) controls.moveRight(0.2);
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+
+</body>
+</html>
