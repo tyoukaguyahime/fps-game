@@ -2,60 +2,107 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>FPS</title>
+<title>FPS完全版</title>
 <style>
-body { margin: 0; overflow: hidden; }
+body { margin:0; overflow:hidden; }
+
+/* スタート画面（最前面＆確実にクリック可） */
 #start {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: black;
-  color: white;
-  padding: 20px;
-  cursor: pointer;
+  position: fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  background:black;
+  color:white;
+  padding:20px;
+  cursor:pointer;
+  z-index:9999;
+}
+
+/* 照準（クリック邪魔しない） */
+#crosshair {
+  position: fixed;
+  top:50%;
+  left:50%;
+  width:10px;
+  height:10px;
+  background:white;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  z-index:5;
+  pointer-events:none;
+}
+
+/* HP表示 */
+#hp {
+  position: fixed;
+  top:10px;
+  left:10px;
+  color:white;
+  font-size:20px;
+  z-index:5;
 }
 </style>
 </head>
 <body>
 
 <div id="start">クリックしてスタート</div>
+<div id="crosshair"></div>
+<div id="hp">HP: 100</div>
 
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
 import { PointerLockControls } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/PointerLockControls.js";
 
-// シーン
+// ===== 基本 =====
 const scene = new THREE.Scene();
 
-// カメラ
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 1, 1000);
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth/window.innerHeight,
+  1,
+  1000
+);
 
-// レンダラー
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.domElement.style.position = "fixed";
+renderer.domElement.style.top = "0";
+renderer.domElement.style.left = "0";
+renderer.domElement.style.zIndex = "0"; // ← 下にする
 document.body.appendChild(renderer.domElement);
 
 // ライト
-const light = new THREE.HemisphereLight(0xffffff, 0x444444);
-scene.add(light);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
 // 地面
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(200,200),
-  new THREE.MeshStandardMaterial({color: 0x808080})
+  new THREE.MeshStandardMaterial({color:0x808080})
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// FPS操作
+// ===== FPS操作 =====
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
 
-document.getElementById("start").onclick = () => {
-  controls.lock();
-};
+// スタート
+const startBtn = document.getElementById("start");
 
-// 移動
+startBtn.addEventListener("click", ()=>{
+  controls.lock();
+});
+
+controls.addEventListener("lock", ()=>{
+  startBtn.style.display = "none";
+});
+
+controls.addEventListener("unlock", ()=>{
+  startBtn.style.display = "block";
+});
+
+// ===== 移動 =====
 let f=false,b=false,l=false,r=false;
 
 document.addEventListener("keydown", e=>{
@@ -72,38 +119,75 @@ document.addEventListener("keyup", e=>{
   if(e.key==="ArrowRight") r=false;
 });
 
-// 敵
-const enemy = new THREE.Mesh(
-  new THREE.BoxGeometry(2,2,2),
+// ===== 敵 =====
+const body = new THREE.Mesh(
+  new THREE.BoxGeometry(2,4,2),
   new THREE.MeshStandardMaterial({color:"red"})
 );
-enemy.position.set(0,1,-20);
-scene.add(enemy);
+body.position.set(0,2,-20);
+scene.add(body);
 
-// 射撃
+const head = new THREE.Mesh(
+  new THREE.BoxGeometry(1.5,1.5,1.5),
+  new THREE.MeshStandardMaterial({color:"yellow"})
+);
+head.position.set(0,5,-20);
+scene.add(head);
+
+// ===== HP =====
+let hp = 100;
+const hpText = document.getElementById("hp");
+
+// ===== 射撃 =====
 const raycaster = new THREE.Raycaster();
 
 document.addEventListener("click", ()=>{
-  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-  const hit = raycaster.intersectObjects([enemy]);
+  if(!controls.isLocked) return;
 
-  if(hit.length > 0){
-    console.log("ヒット！");
+  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+  const hits = raycaster.intersectObjects([head, body]);
+
+  if(hits.length > 0){
+    const obj = hits[0].object;
+
+    if(obj === head){
+      hp -= 50;
+      console.log("ヘッドショット！");
+    } else {
+      hp -= 20;
+      console.log("ボディヒット");
+    }
+
+    hpText.textContent = "HP: " + hp;
+
+    if(hp <= 0){
+      alert("敵撃破！");
+      body.visible = false;
+      head.visible = false;
+    }
   }
 });
 
-// ループ
+// ===== ループ =====
 function animate(){
   requestAnimationFrame(animate);
 
-  if(f) controls.moveForward(0.2);
-  if(b) controls.moveForward(-0.2);
-  if(l) controls.moveRight(-0.2);
-  if(r) controls.moveRight(0.2);
+  const speed = 0.2;
+  if(f) controls.moveForward(speed);
+  if(b) controls.moveForward(-speed);
+  if(l) controls.moveRight(-speed);
+  if(r) controls.moveRight(speed);
 
   renderer.render(scene, camera);
 }
 animate();
+
+// 画面サイズ対応
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 
 </body>
